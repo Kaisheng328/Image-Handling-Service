@@ -12,6 +12,7 @@ func main() {
 	configs.InitiEnvConfigs()
 	routes.InitializeRoutes()
 	routes.Router.Run(":" + configs.EnvConfigs.LocalServerPort)
+
 	fmt.Printf("hahahha")
 	fmt.Printf("hahahha")
 	fmt.Printf("hahahha")
