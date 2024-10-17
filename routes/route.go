@@ -17,6 +17,7 @@ var (
 	Router          = gin.Default()
 	StorageClient   *storage.Client
 	FirestoreClient *firestore.Client
+	latestStatus    string = "API is working fine !!!!"
 )
 
 func InitializeRoutes() {
@@ -28,7 +29,7 @@ func InitializeRoutes() {
 }
 func HealthCheck(context *gin.Context) {
 	context.JSON(http.StatusOK, gin.H{
-		"message": "API is working fine.",
+		"message": latestStatus,
 	})
 }
 
@@ -67,8 +68,9 @@ func HandlePost(c *gin.Context) {
 	}
 	currentTime := time.Now()
 	timestamp := currentTime.Format("20060102_150405")
+	latestStatus = fmt.Sprintf("image_%v uploaded successfully", timestamp)
 	c.JSON(http.StatusOK, gin.H{
-		"status": fmt.Sprintf("image_%v uploaded successfully", timestamp),
+		"status": latestStatus,
 	})
 }
 func HandleWatermarkImage(c *gin.Context) {
@@ -104,8 +106,8 @@ func HandleWatermarkImage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
+	latestStatus = fmt.Sprintf("watermarked_%s saved successfully", requestBody.ImageID)
 	c.JSON(http.StatusOK, gin.H{
-		"status": fmt.Sprintf("watermarked_%s saved successfully", requestBody.ImageID),
+		"status": latestStatus,
 	})
 }
