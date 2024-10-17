@@ -42,6 +42,7 @@ func HandlePost(c *gin.Context) {
 	sa := option.WithCredentialsFile("halogen-device-438608-v9-firebase-adminsdk-kwtb8-780d822bbb.json")
 	StorageClient, err := storage.NewClient(ctx, sa)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Credential File"})
 		fmt.Printf("error initializing app: %v\n", err)
 		return
 	}
@@ -57,6 +58,7 @@ func HandlePost(c *gin.Context) {
 	// Parse the request body
 	if err := c.BindJSON(&requestBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		fmt.Println("Invalid Request Body")
 		return
 	}
 
