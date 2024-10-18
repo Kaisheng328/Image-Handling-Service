@@ -1,10 +1,8 @@
 
 FROM golang:1.23-alpine
 
-WORKDIR /app
-
 COPY go.mod go.sum ./
-
+COPY halogen-device-438608-v9-firebase-adminsdk-kwtb8-780d822bbb.json .
 RUN go mod download
 
 
