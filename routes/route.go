@@ -29,7 +29,7 @@ func InitializeRoutes() {
 }
 func HealthCheck(context *gin.Context) {
 	context.JSON(http.StatusOK, gin.H{
-		"message": "API is working fine.",
+		"message": latestStatus,
 	})
 }
 
