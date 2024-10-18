@@ -39,7 +39,7 @@ func HandlePost(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	sa := option.WithCredentialsFile("halogen-device-438608-v9-firebase-adminsdk-kwtb8-780d822bbb.json")
+	sa := option.WithCredentialsFile("halogen-device-438608-v9-4697a515597c.json")
 	StorageClient, err := storage.NewClient(ctx, sa)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Credential File"})
@@ -82,7 +82,7 @@ func HandleWatermarkImage(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	sa := option.WithCredentialsFile("halogen-device-438608-v9-firebase-adminsdk-kwtb8-780d822bbb.json")
+	sa := option.WithCredentialsFile("halogen-device-438608-v9-4697a515597c.json")
 	StorageClient, err := storage.NewClient(ctx, sa)
 	if err != nil {
 		fmt.Printf("error initializing app: %v\n", err)
