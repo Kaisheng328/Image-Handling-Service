@@ -142,11 +142,17 @@ func PostImage(c *gin.Context) {
 		fmt.Println("Invalid Request Body")
 		return
 	}
-	currentTime := time.Now()
+	location, err := time.LoadLocation("Asia/Kuala_Lumpur")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load timezone"})
+		fmt.Println("Failed to load timezone")
+		return
+	}
+	currentTime := time.Now().In(location)
 	timestamp := currentTime.Format("20060102_150405")
 
 	// Call the function to upload the image
-	err := functions.UploadImageHandler(requestBody.Base64Image, StorageClient, FirestoreClient, timestamp)
+	err = functions.UploadImageHandler(requestBody.Base64Image, StorageClient, FirestoreClient, timestamp)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
