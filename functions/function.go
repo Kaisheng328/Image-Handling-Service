@@ -216,7 +216,7 @@ func GetMediumImageDetailFromFirestore(client *firestore.Client, parentID string
 	doc, err := docRef.Get(ctx)
 	if err != nil {
 
-		return nil, fmt.Errorf("failed to get small image details from Firestore: %v", err)
+		return nil, fmt.Errorf("failed to get medium image details from Firestore: %v", err)
 	}
 
 	// Extract the document data
@@ -235,7 +235,7 @@ func GetLargeImageDetailFromFirestore(client *firestore.Client, parentID string)
 	doc, err := docRef.Get(ctx)
 	if err != nil {
 
-		return nil, fmt.Errorf("failed to get small image details from Firestore: %v", err)
+		return nil, fmt.Errorf("failed to get large image details from Firestore: %v", err)
 	}
 
 	// Extract the document data
