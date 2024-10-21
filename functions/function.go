@@ -186,62 +186,23 @@ func UploadImageToFirebase(client *storage.Client, filename string, img image.Im
 
 	return filename, nil
 }
-
-func GetSmallImageDetailFromFirestore(client *firestore.Client, parentID string) (map[string]interface{}, error) {
+func GetImageDetailsFromFireStore(client *firestore.Client, parentID string, sizename string) (map[string]interface{}, error) {
 	ctx := context.Background()
 
 	// Reference the Firestore document for the small image
-	docRef := client.Collection("posts").Doc(parentID).Collection("resized_images").Doc("small")
+	docRef := client.Collection("posts").Doc(parentID).Collection("resized_images").Doc(sizename)
 
 	// Get the document from Firestore
 	doc, err := docRef.Get(ctx)
 	if err != nil {
 
-		return nil, fmt.Errorf("failed to get small image details from Firestore: %v", err)
+		return nil, fmt.Errorf("failed to get %s image details from Firestore: %v", sizename, err)
 	}
 
 	// Extract the document data
 	imageDetails := doc.Data()
 
-	log.Printf("Small image details retrieved from Firestore: parentID = %s\n", parentID)
-	return imageDetails, nil
-}
-func GetMediumImageDetailFromFirestore(client *firestore.Client, parentID string) (map[string]interface{}, error) {
-	ctx := context.Background()
-
-	// Reference the Firestore document for the small image
-	docRef := client.Collection("posts").Doc(parentID).Collection("resized_images").Doc("medium")
-
-	// Get the document from Firestore
-	doc, err := docRef.Get(ctx)
-	if err != nil {
-
-		return nil, fmt.Errorf("failed to get medium image details from Firestore: %v", err)
-	}
-
-	// Extract the document data
-	imageDetails := doc.Data()
-
-	log.Printf("Medium image details retrieved from Firestore: parentID = %s\n", parentID)
-	return imageDetails, nil
-}
-func GetLargeImageDetailFromFirestore(client *firestore.Client, parentID string) (map[string]interface{}, error) {
-	ctx := context.Background()
-
-	// Reference the Firestore document for the small image
-	docRef := client.Collection("posts").Doc(parentID).Collection("resized_images").Doc("large")
-
-	// Get the document from Firestore
-	doc, err := docRef.Get(ctx)
-	if err != nil {
-
-		return nil, fmt.Errorf("failed to get large image details from Firestore: %v", err)
-	}
-
-	// Extract the document data
-	imageDetails := doc.Data()
-
-	log.Printf("large image details retrieved from Firestore: parentID = %s\n", parentID)
+	log.Printf("%s image details retrieved from Firestore: parentID = %s\n", sizename, parentID)
 	return imageDetails, nil
 }
 
@@ -328,7 +289,8 @@ func SaveResizedImageDetailsToFirestore(client *firestore.Client, parentID, size
 	log.Printf("Resized image details saved to Firestore: parentID = %s, sizeID = %s\n", parentID, sizeID)
 	return nil
 }
-func ProcessResizeSmallImage(imageID string, StorageClient *storage.Client, firestoreClient *firestore.Client) error {
+
+func ProcessResizeImage(imageID string, sizename string, StorageClient *storage.Client, firestoreClient *firestore.Client) error {
 	ctx := context.Background()
 	objectPath := fmt.Sprintf("%s.jpg", imageID)
 	bucketName := "halogen-device-438608-v9.appspot.com"
@@ -342,131 +304,58 @@ func ProcessResizeSmallImage(imageID string, StorageClient *storage.Client, fire
 	if err != nil {
 		return fmt.Errorf("failed to decode image: %v", err)
 	}
+	var resizedImage image.Image
+	switch strings.ToLower(sizename) {
+	case "small":
+		resizedImage = ResizeSmallImage(img)
+	case "medium":
+		resizedImage = ResizeMediumImage(img)
+	case "large":
+		resizedImage = ResizeLargeImage(img)
+	default:
+		fmt.Errorf("invalid size: %s", sizename)
+	}
 
-	// Step 2: Resize the image to a small size
-	smallImage := ResizeSmallImage(img)
-
-	// Step 3: Upload the resized image back to Firebase Storage
-	smallPath := fmt.Sprintf("resized/small_%s.jpg", imageID)
-	writer := StorageClient.Bucket(bucketName).Object(smallPath).NewWriter(ctx)
+	Path := fmt.Sprintf("resized/%s_%s.jpg", sizename, imageID)
+	writer := StorageClient.Bucket(bucketName).Object(Path).NewWriter(ctx)
 	defer writer.Close()
 
 	writer.ContentType = "image/jpeg"
-	if err := jpeg.Encode(writer, smallImage, &jpeg.Options{Quality: 90}); err != nil {
+	if err := jpeg.Encode(writer, resizedImage, &jpeg.Options{Quality: 90}); err != nil {
 		return fmt.Errorf("failed to encode and upload resized image: %v", err)
 	}
 
 	// Step 4: Save the resized image details to Firestore with the original image ID as the parentID
-	err = SaveResizedImageDetailsToFirestore(firestoreClient, imageID, "small", "Small size image", smallPath)
+	err = SaveResizedImageDetailsToFirestore(firestoreClient, imageID, sizename, fmt.Sprintf("%s size image", sizename), Path)
 	if err != nil {
 		return fmt.Errorf("failed to save resized image details to Firestore: %v", err)
 	}
 
-	fmt.Println("Resized image saved successfully:", smallPath)
+	fmt.Println("Resized image saved successfully:", Path)
 	return nil
 }
-func ProcessResizeMediumImage(imageID string, StorageClient *storage.Client, firestoreClient *firestore.Client) error {
-	ctx := context.Background()
-	objectPath := fmt.Sprintf("%s.jpg", imageID)
-	bucketName := "halogen-device-438608-v9.appspot.com"
-	reader, err := StorageClient.Bucket(bucketName).Object(objectPath).NewReader(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get image from storage: %v", err)
-	}
-	defer reader.Close()
-
-	img, _, err := image.Decode(reader)
-	if err != nil {
-		return fmt.Errorf("failed to decode image: %v", err)
-	}
-
-	// Step 2: Resize the image to a small size
-	mediumImage := ResizeMediumImage(img)
-
-	// Step 3: Upload the resized image back to Firebase Storage
-	mediumPath := fmt.Sprintf("resized/medium_%s.jpg", imageID)
-	writer := StorageClient.Bucket(bucketName).Object(mediumPath).NewWriter(ctx)
-	defer writer.Close()
-
-	writer.ContentType = "image/jpeg"
-	if err := jpeg.Encode(writer, mediumImage, &jpeg.Options{Quality: 90}); err != nil {
-		return fmt.Errorf("failed to encode and upload resized image: %v", err)
-	}
-
-	// Step 4: Save the resized image details to Firestore with the original image ID as the parentID
-	err = SaveResizedImageDetailsToFirestore(firestoreClient, imageID, "medium", "medium size image", mediumPath)
-	if err != nil {
-		return fmt.Errorf("failed to save resized image details to Firestore: %v", err)
-	}
-
-	fmt.Println("Resized image saved successfully:", mediumPath)
-	return nil
-}
-
-func ProcessResizeLargeImage(imageID string, StorageClient *storage.Client, firestoreClient *firestore.Client) error {
-	ctx := context.Background()
-	objectPath := fmt.Sprintf("%s.jpg", imageID)
-	bucketName := "halogen-device-438608-v9.appspot.com"
-	reader, err := StorageClient.Bucket(bucketName).Object(objectPath).NewReader(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get image from storage: %v", err)
-	}
-	defer reader.Close()
-
-	img, _, err := image.Decode(reader)
-	if err != nil {
-		return fmt.Errorf("failed to decode image: %v", err)
-	}
-
-	// Step 2: Resize the image to a small size
-	largeImage := ResizeLargeImage(img)
-
-	// Step 3: Upload the resized image back to Firebase Storage
-	largePath := fmt.Sprintf("resized/large_%s.jpg", imageID)
-	writer := StorageClient.Bucket(bucketName).Object(largePath).NewWriter(ctx)
-	defer writer.Close()
-
-	writer.ContentType = "image/jpeg"
-	if err := jpeg.Encode(writer, largeImage, &jpeg.Options{Quality: 90}); err != nil {
-		return fmt.Errorf("failed to encode and upload resized image: %v", err)
-	}
-
-	// Step 4: Save the resized image details to Firestore with the original image ID as the parentID
-	err = SaveResizedImageDetailsToFirestore(firestoreClient, imageID, "large", "large size image", largePath)
-	if err != nil {
-		return fmt.Errorf("failed to save resized image details to Firestore: %v", err)
-	}
-
-	fmt.Println("Resized image saved successfully:", largePath)
-	return nil
-}
-
-func ProcessSmallImageWithWatermark(imageID string, storageClient *storage.Client, firestoreClient *firestore.Client) error {
+func ProcessImageWithWatermark(imageID string, sizename string, storageClient *storage.Client, firestoreClient *firestore.Client) error {
 	ctx := context.Background()
 	bucketName := "halogen-device-438608-v9.appspot.com"
 	// Step 1: Find the small resized image path from Firestore
-	docRef := firestoreClient.Collection("posts").Doc(imageID).Collection("resized_images").Doc("small")
+	docRef := firestoreClient.Collection("posts").Doc(imageID).Collection("resized_images").Doc(sizename)
 	doc, err := docRef.Get(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get small resized image from Firestore: %v", err)
+		return fmt.Errorf("failed to get %s resized image from Firestore: %v", sizename, err)
 	}
-
-	// Get the image path
-	smallImagePath, ok := doc.Data()["Path"].(string)
+	ImagePath, ok := doc.Data()["Path"].(string)
 	if !ok {
 		return fmt.Errorf("failed to find the 'Path' field in the Firestore document")
 	}
-
-	// Step 2: Download the small resized image from Firebase Storage
-	reader, err := storageClient.Bucket(bucketName).Object(smallImagePath).NewReader(ctx)
+	reader, err := storageClient.Bucket(bucketName).Object(ImagePath).NewReader(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to download small image from storage: %v", err)
 	}
 	defer reader.Close()
 
-	smallimg, _, err := image.Decode(reader)
+	img, _, err := image.Decode(reader)
 	if err != nil {
-		return fmt.Errorf("failed to decode small image: %v", err)
+		return fmt.Errorf("failed to decode %s image: %v", img, err)
 	}
 
 	// Step 3: Download the watermark image from Firebase Storage
@@ -476,10 +365,10 @@ func ProcessSmallImageWithWatermark(imageID string, storageClient *storage.Clien
 	}
 
 	// Step 4: Apply the watermark on the small image
-	imgWithWatermark := AddWatermark(smallimg, watermark)
+	imgWithWatermark := AddWatermark(img, watermark)
 
 	// Step 5: Save the watermarked image back to Firebase Storage
-	watermarkedPath := fmt.Sprintf("watermarked/small_watermarked_%s.jpg", imageID)
+	watermarkedPath := fmt.Sprintf("watermarked/%s_watermarked_%s.jpg", sizename, imageID)
 	writer := storageClient.Bucket(bucketName).Object(watermarkedPath).NewWriter(ctx)
 	defer writer.Close()
 
@@ -487,176 +376,35 @@ func ProcessSmallImageWithWatermark(imageID string, storageClient *storage.Clien
 	if err := jpeg.Encode(writer, imgWithWatermark, &jpeg.Options{Quality: 90}); err != nil {
 		return fmt.Errorf("failed to encode and upload watermarked image: %v", err)
 	}
-
+	waterPath := fmt.Sprintf("watermarked_%s", sizename)
+	waterPathImage := fmt.Sprintf("Watermarked %s image", sizename)
 	// Step 6: Save the watermarked image path to Firestore
-	err = SaveWatermarkedImageDetailsToFirestore(firestoreClient, imageID, "watermarked_small", "Watermarked small image", watermarkedPath)
+	err = SaveWatermarkedImageDetailsToFirestore(firestoreClient, imageID, waterPath, waterPathImage, watermarkedPath)
 	if err != nil {
 		return fmt.Errorf("failed to save watermarked image details to Firestore: %v", err)
 	}
 
-	fmt.Printf("Watermarked small image saved successfully: %s\n", watermarkedPath)
+	fmt.Printf("Watermarked %s image saved successfully: %s\n", sizename, watermarkedPath)
 	return nil
+
 }
 
-func ProcessMediumImageWithWatermark(imageID string, storageClient *storage.Client, firestoreClient *firestore.Client) error {
+func GetWaterImageDetailFromFirestore(client *firestore.Client, parentID string, sizename string) (map[string]interface{}, error) {
 	ctx := context.Background()
-	bucketName := "halogen-device-438608-v9.appspot.com"
-	docRef := firestoreClient.Collection("posts").Doc(imageID).Collection("resized_images").Doc("medium")
-	doc, err := docRef.Get(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get medium resized image from Firestore: %v", err)
-	}
-	mediumImagePath, ok := doc.Data()["Path"].(string)
-	if !ok {
-		return fmt.Errorf("failed to find the 'Path' field in the Firestore document")
-	}
-
-	reader, err := storageClient.Bucket(bucketName).Object(mediumImagePath).NewReader(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to download medium image from storage: %v", err)
-	}
-	defer reader.Close()
-
-	mediumimg, _, err := image.Decode(reader)
-	if err != nil {
-		return fmt.Errorf("failed to decode small image: %v", err)
-	}
-
-	// Step 3: Download the watermark image from Firebase Storage
-	watermark, err := imaging.Open("Icares_Logo.png")
-	if err != nil {
-		return fmt.Errorf("watermark loading failed: %v", err)
-	}
-
-	imgWithWatermark := AddWatermark(mediumimg, watermark)
-	watermarkedPath := fmt.Sprintf("watermarked/medium_watermarked_%s.jpg", imageID)
-	writer := storageClient.Bucket(bucketName).Object(watermarkedPath).NewWriter(ctx)
-	defer writer.Close()
-
-	writer.ContentType = "image/jpeg"
-	if err := jpeg.Encode(writer, imgWithWatermark, &jpeg.Options{Quality: 90}); err != nil {
-		return fmt.Errorf("failed to encode and upload watermarked image: %v", err)
-	}
-	err = SaveWatermarkedImageDetailsToFirestore(firestoreClient, imageID, "watermarked_medium", "Watermarked medium image", watermarkedPath)
-	if err != nil {
-		return fmt.Errorf("failed to save watermarked image details to Firestore: %v", err)
-	}
-
-	fmt.Printf("Watermarked medium image saved successfully: %s\n", watermarkedPath)
-	return nil
-}
-
-func ProcessLargeImageWithWatermark(imageID string, storageClient *storage.Client, firestoreClient *firestore.Client) error {
-	ctx := context.Background()
-	bucketName := "halogen-device-438608-v9.appspot.com"
-	// Step 1: Find the small resized image path from Firestore
-	docRef := firestoreClient.Collection("posts").Doc(imageID).Collection("resized_images").Doc("large")
-	doc, err := docRef.Get(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get medium resized image from Firestore: %v", err)
-	}
-
-	// Get the image path
-	largeImagePath, ok := doc.Data()["Path"].(string)
-	if !ok {
-		return fmt.Errorf("failed to find the 'Path' field in the Firestore document")
-	}
-
-	// Step 2: Download the small resized image from Firebase Storage
-	reader, err := storageClient.Bucket(bucketName).Object(largeImagePath).NewReader(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to download medium image from storage: %v", err)
-	}
-	defer reader.Close()
-
-	largeimg, _, err := image.Decode(reader)
-	if err != nil {
-		return fmt.Errorf("failed to decode small image: %v", err)
-	}
-
-	// Step 3: Download the watermark image from Firebase Storage
-	watermark, err := imaging.Open("Icares_Logo.png")
-	if err != nil {
-		return fmt.Errorf("watermark loading failed: %v", err)
-	}
-
-	// Step 4: Apply the watermark on the small image
-	imgWithWatermark := AddWatermark(largeimg, watermark)
-
-	// Step 5: Save the watermarked image back to Firebase Storage
-	watermarkedPath := fmt.Sprintf("watermarked/large_watermarked_%s.jpg", imageID)
-	writer := storageClient.Bucket(bucketName).Object(watermarkedPath).NewWriter(ctx)
-	defer writer.Close()
-
-	writer.ContentType = "image/jpeg"
-	if err := jpeg.Encode(writer, imgWithWatermark, &jpeg.Options{Quality: 90}); err != nil {
-		return fmt.Errorf("failed to encode and upload watermarked image: %v", err)
-	}
-
-	// Step 6: Save the watermarked image path to Firestore
-	err = SaveWatermarkedImageDetailsToFirestore(firestoreClient, imageID, "watermarked_large", "Watermarked large image", watermarkedPath)
-	if err != nil {
-		return fmt.Errorf("failed to save watermarked image details to Firestore: %v", err)
-	}
-
-	fmt.Printf("Watermarked large image saved successfully: %s\n", watermarkedPath)
-	return nil
-}
-
-func GetSmallWaterImageDetailFromFirestore(client *firestore.Client, parentID string) (map[string]interface{}, error) {
-	ctx := context.Background()
-
+	docname := fmt.Sprintf("watermarked_%s", sizename)
 	// Reference the Firestore document for the small image
-	docRef := client.Collection("posts").Doc(parentID).Collection("watermarks").Doc("watermarked_small")
+	docRef := client.Collection("posts").Doc(parentID).Collection("watermarks").Doc(docname)
 
 	// Get the document from Firestore
 	doc, err := docRef.Get(ctx)
 	if err != nil {
 
-		return nil, fmt.Errorf("failed to get small watermark image details from Firestore: %v", err)
+		return nil, fmt.Errorf("failed to get %s watermark image details from Firestore: %v", sizename, err)
 	}
 
 	// Extract the document data
 	imageDetails := doc.Data()
 
-	log.Printf("Small Watermark image details retrieved from Firestore: parentID = %s\n", parentID)
-	return imageDetails, nil
-}
-func GetMediumWaterImageDetailFromFirestore(client *firestore.Client, parentID string) (map[string]interface{}, error) {
-	ctx := context.Background()
-
-	// Reference the Firestore document for the small image
-	docRef := client.Collection("posts").Doc(parentID).Collection("watermarks").Doc("watermarked_medium")
-
-	// Get the document from Firestore
-	doc, err := docRef.Get(ctx)
-	if err != nil {
-
-		return nil, fmt.Errorf("failed to get medium watermark image details from Firestore: %v", err)
-	}
-
-	// Extract the document data
-	imageDetails := doc.Data()
-
-	log.Printf("medium Watermark image details retrieved from Firestore: parentID = %s\n", parentID)
-	return imageDetails, nil
-}
-func GetLargeWaterImageDetailFromFirestore(client *firestore.Client, parentID string) (map[string]interface{}, error) {
-	ctx := context.Background()
-
-	// Reference the Firestore document for the small image
-	docRef := client.Collection("posts").Doc(parentID).Collection("watermarks").Doc("watermarked_large")
-
-	// Get the document from Firestore
-	doc, err := docRef.Get(ctx)
-	if err != nil {
-
-		return nil, fmt.Errorf("failed to get large watermark image details from Firestore: %v", err)
-	}
-
-	// Extract the document data
-	imageDetails := doc.Data()
-
-	log.Printf("Large Watermark image details retrieved from Firestore: parentID = %s\n", parentID)
+	log.Printf("%s Watermark image details retrieved from Firestore: parentID = %s\n", sizename, parentID)
 	return imageDetails, nil
 }

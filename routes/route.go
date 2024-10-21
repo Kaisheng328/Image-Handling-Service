@@ -5,7 +5,9 @@ import (
 	"Project/functions"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -26,19 +28,11 @@ var (
 func InitializeRoutes() {
 	publicRoutes := Router.Group("v1/")
 	publicRoutes.GET("health", HealthCheck)
-	publicRoutes.GET("health/:id/small", GetSmallImagePath)
-	publicRoutes.GET("health/:id/medium", GetMediumImagePath)
-	publicRoutes.GET("health/:id/large", GetLargeImagePath)
-	publicRoutes.GET("health/:id/small/water", GetSmallWaterImagePath)
-	publicRoutes.GET("health/:id/medium/water", GetMediumWaterImagePath)
-	publicRoutes.GET("health/:id/large/water", GetLargeWaterImagePath)
+	publicRoutes.GET("health/:id/:size", GetImagePath)
+	publicRoutes.GET("health/:id/:size/water", GetWaterImagePath)
 	publicRoutes.POST("health", PostImage)
-	publicRoutes.POST("health/small", PostImageSmall)
-	publicRoutes.POST("health/medium", PostImageMedium)
-	publicRoutes.POST("health/large", PostImageLarge)
-	publicRoutes.POST("health/small/water", PostSmallWatermarkImage)
-	publicRoutes.POST("health/medium/water", PostMediumWatermarkImage)
-	publicRoutes.POST("health/large/water", PostLargeWatermarkImage)
+	publicRoutes.POST("health/:size", PostImageResize)
+	publicRoutes.POST("health/:size/water", PostImageWatermark)
 
 }
 
@@ -91,92 +85,7 @@ func HealthCheck(context *gin.Context) {
 		"message": latestStatus,
 	})
 }
-func GetSmallImagePath(context *gin.Context) {
-	ImageID := context.Param("id")
-	smallPath, err := functions.GetSmallImageDetailFromFirestore(FirestoreClient, ImageID)
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	latestStatus = fmt.Sprintf("image_%v uploaded successfully", smallPath)
-	context.JSON(http.StatusOK, gin.H{
-		"smallPath": smallPath,
-	})
-}
-func GetMediumImagePath(context *gin.Context) {
-	ImageID := context.Param("id")
-	mediumPath, err := functions.GetMediumImageDetailFromFirestore(FirestoreClient, ImageID)
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	latestStatus = fmt.Sprintf("image_%v uploaded successfully", mediumPath)
-	context.JSON(http.StatusOK, gin.H{
-		"mediumPath": mediumPath,
-	})
-}
-func GetLargeImagePath(context *gin.Context) {
-	ImageID := context.Param("id")
-	largePath, err := functions.GetLargeImageDetailFromFirestore(FirestoreClient, ImageID)
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	latestStatus = fmt.Sprintf("image_%v uploaded successfully", largePath)
-	context.JSON(http.StatusOK, gin.H{
-		"largePath": largePath,
-	})
-}
-func GetSmallWaterImagePath(context *gin.Context) {
-	ImageID := context.Param("id")
-	smallWaterPath, err := functions.GetSmallWaterImageDetailFromFirestore(FirestoreClient, ImageID)
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	latestStatus = fmt.Sprintf("image_%v uploaded successfully", smallWaterPath)
-	context.JSON(http.StatusOK, gin.H{
-		"smallWaterPath": smallWaterPath,
-	})
-}
 
-func GetMediumWaterImagePath(context *gin.Context) {
-	ImageID := context.Param("id")
-	mediumWaterPath, err := functions.GetMediumWaterImageDetailFromFirestore(FirestoreClient, ImageID)
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	latestStatus = fmt.Sprintf("image_%v uploaded successfully", mediumWaterPath)
-	context.JSON(http.StatusOK, gin.H{
-		"mediumWaterPath": mediumWaterPath,
-	})
-}
-
-func GetLargeWaterImagePath(context *gin.Context) {
-	ImageID := context.Param("id")
-	largeWaterPath, err := functions.GetLargeWaterImageDetailFromFirestore(FirestoreClient, ImageID)
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	latestStatus = fmt.Sprintf("image_%v uploaded successfully", largeWaterPath)
-	context.JSON(http.StatusOK, gin.H{
-		"largeWaterPath": largeWaterPath,
-	})
-}
 func PostImage(c *gin.Context) {
 	var requestBody struct {
 		Base64Image string `json:"base64image"`
@@ -207,7 +116,8 @@ func PostImage(c *gin.Context) {
 		"status": latestStatus,
 	})
 }
-func PostImageSmall(c *gin.Context) {
+
+func PostImageResize(c *gin.Context) {
 	var requestBody struct {
 		ImageID string `json:"imageID"` // Expecting the Image ID to be sent in the POST request
 	}
@@ -215,20 +125,19 @@ func PostImageSmall(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-	err := functions.ProcessResizeSmallImage(requestBody.ImageID, StorageClient, FirestoreClient)
+	sizename := c.Param("size")
+	err := functions.ProcessResizeImage(requestBody.ImageID, sizename, StorageClient, FirestoreClient)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	// Step 4: Respond with success status
-	latestStatus := fmt.Sprintf("image_%v resized to small successfully", requestBody.ImageID)
+	latestStatus := fmt.Sprintf("%v resized to %v successfully", requestBody.ImageID, sizename)
 	c.JSON(http.StatusOK, gin.H{
 		"status": latestStatus,
 	})
 }
 
-func PostImageMedium(c *gin.Context) {
+func PostImageWatermark(c *gin.Context) {
 	var requestBody struct {
 		ImageID string `json:"imageID"` // Expecting the Image ID to be sent in the POST request
 	}
@@ -236,103 +145,136 @@ func PostImageMedium(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-	err := functions.ProcessResizeMediumImage(requestBody.ImageID, StorageClient, FirestoreClient)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Step 4: Respond with success status
-	latestStatus := fmt.Sprintf("image_%v resized to medium successfully", requestBody.ImageID)
-	c.JSON(http.StatusOK, gin.H{
-		"status": latestStatus,
-	})
-}
-func PostImageLarge(c *gin.Context) {
-	var requestBody struct {
-		ImageID string `json:"imageID"` // Expecting the Image ID to be sent in the POST request
-	}
-	if err := c.BindJSON(&requestBody); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-	err := functions.ProcessResizeLargeImage(requestBody.ImageID, StorageClient, FirestoreClient)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Step 4: Respond with success status
-	latestStatus := fmt.Sprintf("image_%v resized to large successfully", requestBody.ImageID)
-	c.JSON(http.StatusOK, gin.H{
-		"status": latestStatus,
-	})
-}
-func PostSmallWatermarkImage(c *gin.Context) {
-	var requestBody struct {
-		ImageID string `json:"imageID"` // Expecting the Image ID to be sent in the POST request
-	}
-
-	// // Bind JSON request to requestBody struct
-	if err := c.BindJSON(&requestBody); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	err := functions.ProcessSmallImageWithWatermark(requestBody.ImageID, StorageClient, FirestoreClient)
+	sizename := c.Param("size")
+	err := functions.ProcessImageWithWatermark(requestBody.ImageID, sizename, StorageClient, FirestoreClient)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to Process"})
+		// c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to Process"})
+		errResize := functions.ProcessResizeImage(requestBody.ImageID, sizename, StorageClient, FirestoreClient)
+		if errResize != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to process resize"})
+			return
+		}
+		errWatermark := functions.ProcessImageWithWatermark(requestBody.ImageID, sizename, StorageClient, FirestoreClient)
+		if errWatermark != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to process watermark"})
+			return
+		}
+		latestStatus := fmt.Sprintf("%v resized to %v and watermarked successfully after watermarking failed", requestBody.ImageID, sizename)
+		c.JSON(http.StatusOK, gin.H{
+			"status": latestStatus,
+		})
 		return
 	}
-	latestStatus = fmt.Sprintf("small_watermarked_%s.jpg saved successfully", requestBody.ImageID)
+	latestStatus = fmt.Sprintf("%s_watermarked_%s.jpg saved successfully", sizename, requestBody.ImageID)
 	c.JSON(http.StatusOK, gin.H{
 		"status": latestStatus,
 	})
 }
 
-func PostMediumWatermarkImage(c *gin.Context) {
-	var requestBody struct {
-		ImageID string `json:"imageID"` // Expecting the Image ID to be sent in the POST request
-	}
-
-	// // Bind JSON request to requestBody struct
-	if err := c.BindJSON(&requestBody); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	err := functions.ProcessMediumImageWithWatermark(requestBody.ImageID, StorageClient, FirestoreClient)
-
+func GetImagePath(c *gin.Context) {
+	ImageID := c.Param("id")
+	sizename := c.Param("size")
+	imageDetails, err := functions.GetImageDetailsFromFireStore(FirestoreClient, ImageID, sizename)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to Process"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
 		return
 	}
-	latestStatus = fmt.Sprintf("medium_watermarked_%s.jpg saved successfully", requestBody.ImageID)
-	c.JSON(http.StatusOK, gin.H{
-		"status": latestStatus,
-	})
+
+	// Extract the image path from Firestore document
+	imagePath, ok := imageDetails["Path"].(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Image path not found in Firestore document",
+		})
+		return
+	}
+
+	// Construct the Firebase Storage download URL (adjust the base URL as necessary)
+	baseStorageURL := "https://firebasestorage.googleapis.com/v0/b/halogen-device-438608-v9.appspot.com/o/"
+	fullURL := fmt.Sprintf("%s%s?alt=media", baseStorageURL, url.PathEscape(imagePath))
+
+	// Fetch the image from Firebase Storage using the URL
+	resp, err := http.Get(fullURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to download image from Firebase Storage",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the image data
+	imageData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to read image data",
+		})
+		return
+	}
+
+	// Set the content type to match the image type
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream" // Fallback if content type is not available
+	}
+
+	// Send the image as the response
+	c.Data(http.StatusOK, contentType, imageData)
 }
+func GetWaterImagePath(c *gin.Context) {
+	ImageID := c.Param("id")
+	sizename := c.Param("size")
 
-func PostLargeWatermarkImage(c *gin.Context) {
-	var requestBody struct {
-		ImageID string `json:"imageID"` // Expecting the Image ID to be sent in the POST request
-	}
-
-	// // Bind JSON request to requestBody struct
-	if err := c.BindJSON(&requestBody); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	err := functions.ProcessLargeImageWithWatermark(requestBody.ImageID, StorageClient, FirestoreClient)
-
+	// Retrieve the image details from Firestore
+	imageDetails, err := functions.GetWaterImageDetailFromFirestore(FirestoreClient, ImageID, sizename)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to Process"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
 		return
 	}
-	latestStatus = fmt.Sprintf("large_watermarked_%s.jpg saved successfully", requestBody.ImageID)
-	c.JSON(http.StatusOK, gin.H{
-		"status": latestStatus,
-	})
+
+	// Extract the image path from Firestore document
+	imagePath, ok := imageDetails["Path"].(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Image path not found in Firestore document",
+		})
+		return
+	}
+
+	// Construct the Firebase Storage download URL (adjust the base URL as necessary)
+	baseStorageURL := "https://firebasestorage.googleapis.com/v0/b/halogen-device-438608-v9.appspot.com/o/"
+	fullURL := fmt.Sprintf("%s%s?alt=media", baseStorageURL, url.PathEscape(imagePath))
+
+	// Fetch the image from Firebase Storage using the URL
+	resp, err := http.Get(fullURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to download image from Firebase Storage",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the image data
+	imageData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to read image data",
+		})
+		return
+	}
+
+	// Set the content type to match the image type
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream" // Fallback if content type is not available
+	}
+
+	// Send the image as the response
+	c.Data(http.StatusOK, contentType, imageData)
 }
