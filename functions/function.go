@@ -602,3 +602,61 @@ func ProcessLargeImageWithWatermark(imageID string, storageClient *storage.Clien
 	fmt.Printf("Watermarked large image saved successfully: %s\n", watermarkedPath)
 	return nil
 }
+
+func GetSmallWaterImageDetailFromFirestore(client *firestore.Client, parentID string) (map[string]interface{}, error) {
+	ctx := context.Background()
+
+	// Reference the Firestore document for the small image
+	docRef := client.Collection("posts").Doc(parentID).Collection("watermarks").Doc("watermarked_small")
+
+	// Get the document from Firestore
+	doc, err := docRef.Get(ctx)
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get small watermark image details from Firestore: %v", err)
+	}
+
+	// Extract the document data
+	imageDetails := doc.Data()
+
+	log.Printf("Small Watermark image details retrieved from Firestore: parentID = %s\n", parentID)
+	return imageDetails, nil
+}
+func GetMediumWaterImageDetailFromFirestore(client *firestore.Client, parentID string) (map[string]interface{}, error) {
+	ctx := context.Background()
+
+	// Reference the Firestore document for the small image
+	docRef := client.Collection("posts").Doc(parentID).Collection("watermarks").Doc("watermarked_medium")
+
+	// Get the document from Firestore
+	doc, err := docRef.Get(ctx)
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get medium watermark image details from Firestore: %v", err)
+	}
+
+	// Extract the document data
+	imageDetails := doc.Data()
+
+	log.Printf("medium Watermark image details retrieved from Firestore: parentID = %s\n", parentID)
+	return imageDetails, nil
+}
+func GetLargeWaterImageDetailFromFirestore(client *firestore.Client, parentID string) (map[string]interface{}, error) {
+	ctx := context.Background()
+
+	// Reference the Firestore document for the small image
+	docRef := client.Collection("posts").Doc(parentID).Collection("watermarks").Doc("watermarked_large")
+
+	// Get the document from Firestore
+	doc, err := docRef.Get(ctx)
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get large watermark image details from Firestore: %v", err)
+	}
+
+	// Extract the document data
+	imageDetails := doc.Data()
+
+	log.Printf("Large Watermark image details retrieved from Firestore: parentID = %s\n", parentID)
+	return imageDetails, nil
+}

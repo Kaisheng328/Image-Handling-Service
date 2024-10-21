@@ -29,7 +29,9 @@ func InitializeRoutes() {
 	publicRoutes.GET("health/:id/small", GetSmallImagePath)
 	publicRoutes.GET("health/:id/medium", GetMediumImagePath)
 	publicRoutes.GET("health/:id/large", GetLargeImagePath)
-
+	publicRoutes.GET("health/:id/small/water", GetSmallWaterImagePath)
+	publicRoutes.GET("health/:id/medium/water", GetMediumWaterImagePath)
+	publicRoutes.GET("health/:id/large/water", GetLargeWaterImagePath)
 	publicRoutes.POST("health", PostImage)
 	publicRoutes.POST("health/small", PostImageSmall)
 	publicRoutes.POST("health/medium", PostImageMedium)
@@ -131,7 +133,50 @@ func GetLargeImagePath(context *gin.Context) {
 		"largePath": largePath,
 	})
 }
+func GetSmallWaterImagePath(context *gin.Context) {
+	ImageID := context.Param("id")
+	smallWaterPath, err := functions.GetSmallWaterImageDetailFromFirestore(FirestoreClient, ImageID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	latestStatus = fmt.Sprintf("image_%v uploaded successfully", smallWaterPath)
+	context.JSON(http.StatusOK, gin.H{
+		"smallWaterPath": smallWaterPath,
+	})
+}
 
+func GetMediumWaterImagePath(context *gin.Context) {
+	ImageID := context.Param("id")
+	mediumWaterPath, err := functions.GetMediumWaterImageDetailFromFirestore(FirestoreClient, ImageID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	latestStatus = fmt.Sprintf("image_%v uploaded successfully", mediumWaterPath)
+	context.JSON(http.StatusOK, gin.H{
+		"mediumWaterPath": mediumWaterPath,
+	})
+}
+
+func GetLargeWaterImagePath(context *gin.Context) {
+	ImageID := context.Param("id")
+	largeWaterPath, err := functions.GetLargeWaterImageDetailFromFirestore(FirestoreClient, ImageID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	latestStatus = fmt.Sprintf("image_%v uploaded successfully", largeWaterPath)
+	context.JSON(http.StatusOK, gin.H{
+		"largeWaterPath": largeWaterPath,
+	})
+}
 func PostImage(c *gin.Context) {
 	var requestBody struct {
 		Base64Image string `json:"base64image"`
