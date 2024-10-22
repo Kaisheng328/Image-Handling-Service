@@ -162,3 +162,93 @@ document.getElementById('applyWatermarkButton').addEventListener('click', async 
         console.error(result); // Log the entire response for debugging
     }
 });
+document.getElementById('previewResizeButton').addEventListener('click', async function () {
+    const imageID = localStorage.getItem('imageID'); // Assuming the image ID is saved here
+    const size = document.getElementById('sizeSelect').value; // Get the size from the dropdown
+
+    if (!imageID) {
+        alert("No image ID found. Please upload an image first.");
+        return;
+    }
+
+    try {
+        // Fetch the image from the backend
+        const response = await fetch(`/v1/health/${imageID}/${size}`, {
+            method: 'GET',
+        });
+
+        if (!response.ok) {
+            alert('Error fetching the image');
+            return;
+        }
+
+        // Read the image blob from the response
+        const imageBlob = await response.blob();
+
+        // Create a URL for the blob and set it as the src of the image element
+        const imageUrl = URL.createObjectURL(imageBlob);
+        const imagePreview = document.getElementById('imagePreview');
+        imagePreview.src = imageUrl;
+
+        // Show the image and the close button
+        imagePreview.style.display = 'block';
+        document.getElementById('closePreviewResizeButton').style.display = 'block';
+
+        console.log('Image previewed successfully');
+    } catch (error) {
+        console.error('Error fetching or displaying the image:', error);
+        alert('Failed to preview image');
+    }
+});
+
+// Close Preview Button Logic
+document.getElementById('closePreviewResizeButton').addEventListener('click', function () {
+    const imagePreview = document.getElementById('imagePreview');
+    imagePreview.style.display = 'none'; // Hide the image
+    document.getElementById('closePreviewResizeButton').style.display = 'none'; // Hide the close button
+});
+
+document.getElementById('previewWatermarkButton').addEventListener('click', async function () {
+    const imageID = localStorage.getItem('imageID'); // Assuming the image ID is saved here
+    const size = document.getElementById('sizeSelect').value; // Get the size from the dropdown
+
+    if (!imageID) {
+        alert("No image ID found. Please upload an image first.");
+        return;
+    }
+
+    try {
+        // Fetch the image from the backend
+        const response = await fetch(`/v1/health/${imageID}/${size}/water`, {
+            method: 'GET',
+        });
+
+        if (!response.ok) {
+            alert('Error fetching the image');
+            return;
+        }
+
+        // Read the image blob from the response
+        const imageBlob = await response.blob();
+
+        // Create a URL for the blob and set it as the src of the image element
+        const imageUrl = URL.createObjectURL(imageBlob);
+        const imagePreview = document.getElementById('WaterimagePreview');
+        imagePreview.src = imageUrl;
+
+        // Show the image and the close button
+        imagePreview.style.display = 'block';
+        document.getElementById('closePreviewWaterButton').style.display = 'block';
+
+        console.log('Image previewed successfully');
+    } catch (error) {
+        console.error('Error fetching or displaying the image:', error);
+        alert('Failed to preview image');
+    }
+});
+
+document.getElementById('closePreviewWaterButton').addEventListener('click', function () {
+    const imagePreview = document.getElementById('WaterimagePreview');
+    imagePreview.style.display = 'none'; // Hide the image
+    document.getElementById('closePreviewWaterButton').style.display = 'none'; // Hide the close button
+});
