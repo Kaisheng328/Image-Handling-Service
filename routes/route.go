@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -30,6 +31,7 @@ func InitializeRoutes() {
 	publicRoutes.GET("health", HealthCheck)
 	publicRoutes.GET("health/:id/:size", GetImagePath)
 	publicRoutes.GET("health/:id/:size/water", GetWaterImagePath)
+	publicRoutes.POST("uploadWatermark", PostWatermarkImage)
 	publicRoutes.POST("health", PostImage)
 	publicRoutes.POST("health/:size", PostImageResize)
 	publicRoutes.POST("health/:size/water", PostImageWatermark)
@@ -104,16 +106,18 @@ func PostImage(c *gin.Context) {
 	}
 	currentTime := time.Now().In(location)
 	timestamp := currentTime.Format("20060102_150405")
-
+	imageID := fmt.Sprintf("image_%s", timestamp)
 	// Call the function to upload the image
 	err = functions.UploadImageHandler(requestBody.Base64Image, StorageClient, FirestoreClient, timestamp)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	latestStatus = fmt.Sprintf("image_%v uploaded successfully", timestamp)
+	latestStatus = fmt.Sprintf("image_%v uploaded successfully", imageID)
+	log.Printf("Image uploaded with ID: %s", imageID)
 	c.JSON(http.StatusOK, gin.H{
-		"status": latestStatus,
+		"status":  latestStatus,
+		"imageID": imageID,
 	})
 }
 
@@ -128,6 +132,7 @@ func PostImageResize(c *gin.Context) {
 	sizename := c.Param("size")
 	err := functions.ProcessResizeImage(requestBody.ImageID, sizename, StorageClient, FirestoreClient)
 	if err != nil {
+		log.Printf("Error in ProcessResizeImage: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -277,4 +282,40 @@ func GetWaterImagePath(c *gin.Context) {
 
 	// Send the image as the response
 	c.Data(http.StatusOK, contentType, imageData)
+}
+func PostWatermarkImage(c *gin.Context) {
+	var requestBody struct {
+		Base64Image string `json:"base64image"`
+		ImageName   string `json:"imagename"` // Expect the name to be provided in the request body
+	}
+
+	// Bind the JSON request to the requestBody struct
+	if err := c.BindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		fmt.Println("Invalid Request Body")
+		return
+	}
+
+	// Validate that the image name is provided
+	if requestBody.ImageName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Image name is required"})
+		fmt.Println("Image name not provided")
+		return
+	}
+
+	// Call the function to upload the watermark image
+	err := functions.UploadWatermarkImageHandler(requestBody.Base64Image, requestBody.ImageName, StorageClient, FirestoreClient)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	latestStatus := fmt.Sprintf("Watermark image %v uploaded successfully", requestBody.ImageName)
+	log.Printf("Watermark image uploaded with name: %s", requestBody.ImageName)
+
+	// Send success response with the provided image name
+	c.JSON(http.StatusOK, gin.H{
+		"status":    latestStatus,
+		"imageName": requestBody.ImageName,
+	})
 }

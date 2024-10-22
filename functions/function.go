@@ -290,9 +290,11 @@ func SaveResizedImageDetailsToFirestore(client *firestore.Client, parentID, size
 	return nil
 }
 
-func ProcessResizeImage(imageID string, sizename string, StorageClient *storage.Client, firestoreClient *firestore.Client) error {
+func ProcessResizeImage(ImageID string, sizename string, StorageClient *storage.Client, firestoreClient *firestore.Client) error {
 	ctx := context.Background()
-	objectPath := fmt.Sprintf("%s.jpg", imageID)
+	log.Printf("Received ImageID: %s", ImageID)
+	objectPath := fmt.Sprintf("%s.jpg", ImageID)
+	log.Printf("Attempting to retrieve image with path: %s", objectPath)
 	bucketName := "halogen-device-438608-v9.appspot.com"
 	reader, err := StorageClient.Bucket(bucketName).Object(objectPath).NewReader(ctx)
 	if err != nil {
@@ -316,7 +318,7 @@ func ProcessResizeImage(imageID string, sizename string, StorageClient *storage.
 		fmt.Errorf("invalid size: %s", sizename)
 	}
 
-	Path := fmt.Sprintf("resized/%s_%s.jpg", sizename, imageID)
+	Path := fmt.Sprintf("resized/%s_%s.jpg", sizename, ImageID)
 	writer := StorageClient.Bucket(bucketName).Object(Path).NewWriter(ctx)
 	defer writer.Close()
 
@@ -326,7 +328,7 @@ func ProcessResizeImage(imageID string, sizename string, StorageClient *storage.
 	}
 
 	// Step 4: Save the resized image details to Firestore with the original image ID as the parentID
-	err = SaveResizedImageDetailsToFirestore(firestoreClient, imageID, sizename, fmt.Sprintf("%s size image", sizename), Path)
+	err = SaveResizedImageDetailsToFirestore(firestoreClient, ImageID, sizename, fmt.Sprintf("%s size image", sizename), Path)
 	if err != nil {
 		return fmt.Errorf("failed to save resized image details to Firestore: %v", err)
 	}
@@ -407,4 +409,40 @@ func GetWaterImageDetailFromFirestore(client *firestore.Client, parentID string,
 
 	log.Printf("%s Watermark image details retrieved from Firestore: parentID = %s\n", sizename, parentID)
 	return imageDetails, nil
+}
+func UploadWatermarkImageHandler(base64ImageData string, ImageName string, StorageClient *storage.Client, firestoreClient *firestore.Client) error {
+	if strings.HasPrefix(base64ImageData, "data:image/") {
+		commaIndex := strings.Index(base64ImageData, ",")
+		if commaIndex != -1 {
+			base64ImageData = base64ImageData[commaIndex+1:]
+		}
+	}
+
+	// Decode the Base64 string into image bytes
+	imageData, err := base64.StdEncoding.DecodeString(base64ImageData)
+	if err != nil {
+		return fmt.Errorf("unable to decode Base64 string: %v", err)
+	}
+
+	// Create a reader from the decoded bytes
+	imageReader := strings.NewReader(string(imageData))
+
+	// Decode the image to check if it's a valid image
+	img, format, err := image.Decode(imageReader)
+	if err != nil {
+		return fmt.Errorf("invalid image format: %v", err)
+	}
+
+	log.Printf("Image decoded successfully: format = %s\n", format)
+	Filepath, err := UploadImageToFirebase(StorageClient, ImageName, img)
+	if err != nil {
+		return fmt.Errorf("error uploading image: %v", err)
+	}
+	description := "Watermark Image uploaded successfully!!!"
+	err = SaveUploadedImageDetailsToFirestore(firestoreClient, ImageName, description, Filepath)
+	if err != nil {
+		return fmt.Errorf("error saving watermark image details to Firestore: %v", err)
+	}
+	return nil
+
 }

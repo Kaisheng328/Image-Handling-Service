@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload, Resize, and Watermark</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Image Upload, Resize, and Watermark</h1>
+
+        <!-- Image Upload Section -->
+        <div>
+            <h2>Upload Image</h2>
+            <input type="file" id="imageUpload" accept=".jpg, .jpeg, .png">
+            <button id="uploadButton">Upload Image</button>
+        </div>
+
+        <!-- Watermark Upload Section -->
+        <div>
+            <h2>Upload Watermark</h2>
+            <input type="file" id="watermarkUpload" accept=".png, .jpeg, .jpg">
+            <input type="text" id="watermarkImageName" placeholder="Enter watermark image name">
+            <button id="uploadWatermarkButton">Upload Watermark</button>
+        </div>
+
+        <!-- Resize Image Section -->
+        <div>
+            <h2>Resize Image</h2>
+            <label for="sizeSelect">Choose size:</label>
+            <select id="sizeSelect">
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+            </select>
+            <button id="resizeButton">Resize Image</button>
+        </div>
+
+        <!-- Apply Watermark Section -->
+        <div>
+            <h2>Apply Watermark</h2>
+            <button id="applyWatermarkButton">Apply Watermark to Resized Image</button>
+        </div>
+
+        <!-- Feedback Section -->
+        <div id="feedback"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
